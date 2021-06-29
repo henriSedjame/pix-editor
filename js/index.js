@@ -3,15 +3,14 @@ const cell_size = 50;
 const canvas = document.getElementById("pix-editor");
 let ctx = canvas.getContext("2d");
 
-
 function draw(state) {
 
     ctx.strokeStyle = "black";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 0.5;
 
-    const nb_cells_in_width = state.image.width();
-    const nb_cells_in_height = state.image.height();
-    let cells = state.image.cells();
+    const nb_cells_in_width = state.internal.image().width();
+    const nb_cells_in_height = state.internal.image().height();
+    let cells = state.internal.image().cells();
 
     for (let x = 0; x < nb_cells_in_width; x++) {
         for (let y = 0; y < nb_cells_in_height; y++) {
@@ -59,29 +58,47 @@ function handleEnvent(state, condition) {
         let x = Math.floor((event.clientX - rect.left) / cell_size);
         let y = Math.floor((event.clientY - rect.top) / cell_size);
 
-        state.image = state.image.brush(x, y, [200, 200, 200]);
+        state.internal.brush(x, y, [200, 200, 200]);
 
         draw(state);
     };
 }
 
 function setUpCanvas(state) {
-
-
-
     canvas.addEventListener('click', handleEnvent(state, false));
     canvas.addEventListener('mousemove', handleEnvent(state, true));
-    canvas.addEventListener('mousedown', (e) => {state.dragging = true;});
-    canvas.addEventListener('mouseup', (e) => {state.dragging = false;});
-}
+    canvas.addEventListener('mousedown', (e) => {
+        state.dragging = true;
+        state.internal.start_undo_block();
+    });
+    canvas.addEventListener('mouseup', (e) => {
+        state.dragging = false;
+        state.internal.close_undo_block();
+    });
 
+    document.addEventListener('keypress',evt => {
+        switch (evt.key) {
+            case "z":
+                if (evt.ctrlKey) {
+                    state.internal.undo();
+                    draw(state);
+                }
+                break;
+            case "y":
+                if (evt.ctrlKey) {
+                    state.internal.redo();
+                    draw(state);
+                }
+        }
+    })
+}
 
 async function main() {
     const lib = await import("../pkg/index.js").catch(console.error);
-    let image = new lib.Image(10, 10);
+    let internal = new lib.InternalState(10, 10);
 
     let state = {
-        image,
+        internal,
         currentColor: [200, 250, 200],
         dragging: false
     }
